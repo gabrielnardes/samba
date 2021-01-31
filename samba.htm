@@ -1,0 +1,198 @@
+<!--
+PROJETO DE ENVASADORA AUTOMÁTICA 
+IFSP - Registro 
+
+Alunos: Cássio Germano, Eduarda Mendonça, Fernada Yukari, Gabriel Nardes, Luís Gonçalves, Maria Caroline Souza 
+Professores: André Santos, Raphael de Abreu
+Disciplina: Automação industrial 
+Curso: Engenharia de Produção - 7° semestre 
+Ano: 2020 
+
+Referências
+Canal: Internet e Coisas
+Curso de MQTT - Parte 1 - Internet e Coisas #51
+https://www.youtube.com/watch?v=WqHIFSYMHy0
+
+Acesse Dados via MQTT no Navegador - Internet e Coisas #69
+https://www.youtube.com/watch?v=oR2J0ar6cZQ
+
+Instruções
+Basta abrir este arquivo no navegador que ele automaticamente irá se conectar ao broker MQTT.
+Por se tratar de um broker público e gratuito, feito apenas para testes, espera-se que às vezes ocorram falhas de conexão.
+-->
+
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8">
+  <title>SUPERVISÓRIO SAMBA®</title>
+  <style>
+  table, th, td {
+    border: 1px solid black;
+  }
+  </style>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.min.js"></script>
+  <script>
+    /***************************************************
+     * Cliente MQTT
+     */
+
+    // Variáveis para cliente MQTT
+    var mqtt;
+    var reconnectTimeout = 2000;
+    var host = "test.mosquitto.org";
+    var port = 8081;
+
+    // Variáveis para sistema supervisório
+    var status_disco;
+
+    function onConnect() 
+    {
+      // Conexao ao Broker        
+      var t = document.getElementById("statusSistema");
+      t.innerText = "CONECTADO";
+      console.log("Conectado");
+      mqtt.subscribe("envasadora_ifsp/statusEsteira");
+      mqtt.subscribe("envasadora_ifsp/statusDisco");
+      mqtt.subscribe("envasadora_ifsp/statusValvula");
+      mqtt.subscribe("envasadora_ifsp/litrosEnvasados");
+      mqtt.subscribe("envasadora_ifsp/qntdCopos");
+    }
+
+    function onError(message) 
+    {
+      // Ocorrencia de erro
+      console.log("Falha: " + message.errorCode + " " + message.errorMessage);
+      setTimeout(MQTTConnect, reconnectTimeout);
+    }
+
+    function button_on(t, device)
+    {
+      t.innerText = "ON";
+      t.style.background = "rgb(170, 236, 83)";
+      const message_device = `${device} ligado`;
+      console.log(message_device);
+    }
+
+    function button_off(t, device)
+    {
+      t.innerText = "OFF";
+      t.style.background = "rgb(227, 0, 14)";
+      const message_device = `${device} desligado`;
+      console.log(message_device);
+    }
+
+    function check_status(status, t, device)
+    {
+      if (status == true) 
+        button_on(t, device);
+
+      else if (status == false)
+        button_off(t, device);  
+    }
+
+    function onMessageArrived(msg) 
+    {
+      // Mensagem recebida
+      const message_arrive = `Mensagem: ${msg.destinationName} = ${msg.payloadString}`;
+      console.log(message_arrive);
+      
+      if (msg.destinationName == "envasadora_ifsp/statusEsteira") 
+      {
+        var t = document.getElementById("statusEsteira");
+        const device = "Esteira";
+        check_status(msg.payloadString, t, device);   
+      }
+
+      else if (msg.destinationName == "envasadora_ifsp/statusDisco") 
+      {
+        var t = document.getElementById("statusDisco");
+        const device = "Disco";
+        check_status(msg.payloadString, t, device);   
+      }
+
+      else if (msg.destinationName == "envasadora_ifsp/statusValvula") 
+      {
+        var t = document.getElementById("statusValvula");
+        const device = "Valvula";
+        check_status(msg.payloadString, t, device);   
+      }
+
+      else if (msg.destinationName == "envasadora_ifsp/litrosEnvasados") 
+      {
+        var t = document.getElementById("litros");
+        t.innerText = msg.payloadString;
+        console.log(msg.payloadString + " litros");
+      }
+
+      else if (msg.destinationName == "envasadora_ifsp/qntdCopos") 
+      {
+        var t = document.getElementById("copos");
+        t.innerText = msg.payloadString;
+        console.log(msg.payloadString + " copos");        
+      }
+    }
+
+    function MQTTConnect() 
+    {
+      // Conecta no Broker
+      var t = document.getElementById("statusSistema");
+      t.innerText = "TENTANDO CONEXÃO";
+      console.log("Conectando " + host + " " + port);
+      mqtt = new Paho.MQTT.Client(host, port, "envasadora_ifsp" + parseInt(Math.random() * 1e5));
+      var options = { timeout: 10,
+                      keepAliveInterval: 10,
+                      onSuccess: onConnect,
+                      onFailure: onError
+                    };
+      mqtt.onMessageArrived = onMessageArrived;
+      mqtt.onConnectionLost = onError;
+      mqtt.connect(options);
+    }
+  </script>
+</head>
+<body onload="MQTTConnect()">
+  <table align="center">
+    <tr>
+      <th colspan="2">SUPERVISÓRIO SAMBA® - ENVASADORA AUTOMÁTICA</th>
+      <th id="statusSistema"></th>
+    </tr>
+    <tr>
+      <th>Esteira</th>
+      <th>Disco</th>
+      <th>Válvula</th>
+    </tr>
+    <tr>
+      <td id="statusEsteira">n/d</td>
+      <td id="statusDisco">n/d</td>
+      <td id="statusValvula">n/d</td>
+    </tr>
+    <tr>
+      <th>Copos</th>
+      <th>Litros</th>
+    </tr>
+    <tr>
+      <td id=copos>n/d</td>
+      <td id=litros>n/d</td>
+    </tr>
+  </table>
+  <h3>Descrição</h3>
+  <p>Bem vindo ao sistema supervisório SAMBA® para envasamento automático de líquidos.</p>
+  <p>Aguarde a conexão bem sucessida e desfrute de nossos serviços interativos.</p>
+  <h3>Alunos</h3>
+    <p>Cássio Germano Lara de Souza</p>
+    <p>Eduarda Ribeiro Mendonça</p>
+    <p>Fernanda Yukari Hashiguchi</p>
+    <p>Gabriel Nardes Giampietro</p>
+    <p>Luis Gustavo Gonçalves de Oliveira da Veiga</p>
+    <p>Maria Caroline de Araujo Souza</p>
+  <h3>Professores</h3>
+    <p>Andre Tiago Santos</p>
+    <p>Raphael de Abreu Alves e Silva</p>
+  <h3>IFSP - Registro</h3>
+  <h3>Disciplina: Automação Industrial</h3>
+  <h3>Curso: Engenharia de Produção - 7° semestre</h3>
+  <h3>Ano: 2020</h3>
+  <p><cite>SAMBA® is a trademark of ENGEPRO S/A</cite></p>
+</body>
+</html>
